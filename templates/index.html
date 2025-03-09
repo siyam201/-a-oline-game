@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Gaming Platform - Play 2D Games Online{% endblock %}
+
+{% block content %}
+<!-- Hero section -->
+<section class="hero-section text-white text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold mb-4">Welcome to the Gaming Platform</h1>
+        <p class="lead mb-5">Play classic 2D games, track your scores, and compete with others!</p>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+            <a href="{{ url_for('games_list') }}" class="btn btn-primary btn-lg px-4 me-md-2">Browse Games</a>
+            {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg px-4">Sign Up</a>
+            {% else %}
+                <a href="{{ url_for('profile') }}" class="btn btn-outline-light btn-lg px-4">My Profile</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Featured Games -->
+<section class="container my-5">
+    <h2 class="text-center mb-4">Featured Games</h2>
+    <div class="row g-4">
+        {% for game in games %}
+            <div class="col-md-4">
+                <div class="card h-100 game-card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ game.title }}</h5>
+                        <p class="card-text">{{ game.description }}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('game', game_id=game.id) }}" class="btn btn-primary">Play Now</a>
+                            <div class="rating-stars">
+                                {% set avg_rating = game.average_rating()|int %}
+                                {% for i in range(5) %}
+                                    {% if i < avg_rating %}
+                                        <i class="fas fa-star"></i>
+                                    {% else %}
+                                        <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="bg-dark text-white py-5">
+    <div class="container">
+        <h2 class="text-center mb-5">Platform Features</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card bg-dark border-primary h-100">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-gamepad fa-3x text-primary"></i>
+                        </div>
+                        <h4 class="card-title">Multiple Games</h4>
+                        <p class="card-text">Enjoy a variety of 2D games, from classics like Snake and Pong to platform adventures.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-dark border-primary h-100">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-user fa-3x text-primary"></i>
+                        </div>
+                        <h4 class="card-title">User Profiles</h4>
+                        <p class="card-text">Create your profile and track your game history, high scores, and achievements.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-dark border-primary h-100">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-trophy fa-3x text-primary"></i>
+                        </div>
+                        <h4 class="card-title">Leaderboards</h4>
+                        <p class="card-text">Compete with other players and see who achieves the highest scores on each game.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="container my-5 text-center">
+    <div class="p-5 rounded-3 bg-dark">
+        <h2 class="text-white">Ready to Play?</h2>
+        <p class="lead text-white-50 mb-4">Join our gaming community today and start playing!</p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('games_list') }}" class="btn btn-primary btn-lg px-4 gap-3 pulse-animation">Play Now</a>
+            {% else %}
+                <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4 gap-3 pulse-animation">Sign Up Free</a>
+                <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg px-4">Login</a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

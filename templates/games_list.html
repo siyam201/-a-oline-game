@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Games - Gaming Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mt-4">
+        <div class="col-12">
+            <h2 class="mb-4">Games Library</h2>
+            
+            <!-- Search and filter -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="game-search" class="form-label">Search Games</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" id="game-search" placeholder="Enter game name or keyword...">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Sort By</label>
+                            <select class="form-select" id="game-sort">
+                                <option value="name-asc">Name (A-Z)</option>
+                                <option value="name-desc">Name (Z-A)</option>
+                                <option value="rating-desc">Highest Rating</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Games grid -->
+    <div class="row g-4">
+        {% for game in games %}
+            <div class="col-md-6 col-lg-4 game-card-container">
+                <div class="card h-100 game-card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ game.title }}</h5>
+                        <p class="card-text">{{ game.description }}</p>
+                        
+                        <!-- Game rating stars -->
+                        <div class="mb-3">
+                            {% set avg_rating = game.average_rating()|int %}
+                            <div class="rating-stars">
+                                {% for i in range(5) %}
+                                    {% if i < avg_rating %}
+                                        <i class="fas fa-star"></i>
+                                    {% else %}
+                                        <i class="far fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('game', game_id=game.id) }}" class="btn btn-primary">
+                                <i class="fas fa-gamepad me-2"></i>Play Game
+                            </a>
+                            <a href="{{ url_for('leaderboard', game_id=game.id) }}" class="btn btn-outline-primary">
+                                <i class="fas fa-trophy me-2"></i>View Leaderboard
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-footer text-muted">
+                        <small>
+                            <i class="fas fa-comment me-1"></i>{{ game.comments.count() }} comments
+                            <span class="mx-2">|</span>
+                            <i class="fas fa-gamepad me-1"></i>{{ game.scores.count() }} plays
+                        </small>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sort functionality
+        const gameSort = document.getElementById('game-sort');
+        const gameContainer = document.querySelector('.row.g-4');
+        
+        gameSort.addEventListener('change', function() {
+            const gameCards = Array.from(document.querySelectorAll('.game-card-container'));
+            const sortValue = this.value;
+            
+            gameCards.sort((a, b) => {
+                const titleA = a.querySelector('.card-title').textContent;
+                const titleB = b.querySelector('.card-title').textContent;
+                
+                if (sortValue === 'name-asc') {
+                    return titleA.localeCompare(titleB);
+                } else if (sortValue === 'name-desc') {
+                    return titleB.localeCompare(titleA);
+                } else if (sortValue === 'rating-desc') {
+                    const ratingA = a.querySelectorAll('.fa-star.fas').length;
+                    const ratingB = b.querySelectorAll('.fa-star.fas').length;
+                    return ratingB - ratingA;
+                }
+            });
+            
+            // Reappend sorted cards
+            gameCards.forEach(card => {
+                gameContainer.appendChild(card);
+            });
+        });
+    });
+</script>
+{% endblock %}

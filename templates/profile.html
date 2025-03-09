@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ current_user.username }}'s Profile - Gaming Platform{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- User Profile Header -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card bg-dark">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            <div class="display-1 text-primary">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-10">
+                            <h2 class="mb-2">{{ current_user.username }}</h2>
+                            <p class="text-muted">Member since: {{ current_user.date_joined.strftime('%B %d, %Y') }}</p>
+                            <div class="d-flex">
+                                <div class="me-4">
+                                    <span class="text-muted">Games Played:</span>
+                                    <span class="ms-2 fw-bold counter-value" data-target="{{ games_played|length }}">{{ games_played|length }}</span>
+                                </div>
+                                <div class="me-4">
+                                    <span class="text-muted">Total Scores:</span>
+                                    <span class="ms-2 fw-bold counter-value" data-target="{{ user.scores.count() }}">{{ user.scores.count() }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-muted">Ratings Given:</span>
+                                    <span class="ms-2 fw-bold counter-value" data-target="{{ user.ratings.count() }}">{{ user.ratings.count() }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Statistics -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h3 class="mb-4">Gaming Statistics</h3>
+        </div>
+        
+        {% if games_played %}
+            {% for game_id, data in games_played.items() %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ data.game.title }}</h5>
+                            <div class="my-3">
+                                <div class="d-flex justify-content-between">
+                                    <span>High Score:</span>
+                                    <span class="text-primary fw-bold">{{ data.high_score }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Times Played:</span>
+                                    <span class="fw-bold">{{ data.scores|length }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Last Played:</span>
+                                    <span>{{ data.scores[0].date.strftime('%Y-%m-%d') }}</span>
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <a href="{{ url_for('game', game_id=game_id) }}" class="btn btn-outline-primary">Play Again</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <p class="mb-0">You haven't played any games yet. <a href="{{ url_for('games_list') }}">Browse games</a> to get started!</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h3 class="mb-4">Recent Activity</h3>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Scores</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if user.scores.count() > 0 %}
+                        <div class="list-group list-group-flush">
+                            {% for score in user.scores.order_by(Score.date.desc()).limit(5).all() %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0">{{ score.game.title }}</h6>
+                                            <small class="text-muted">{{ score.date.strftime('%Y-%m-%d %H:%M') }}</small>
+                                        </div>
+                                        <span class="badge bg-primary rounded-pill">{{ score.score }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="p-3">
+                            <p class="text-muted mb-0">No scores recorded yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+                {% if user.scores.count() > 5 %}
+                    <div class="card-footer text-center">
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#allScoresModal">View All Scores</button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Comments</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if comments %}
+                        <div class="list-group list-group-flush">
+                            {% for comment in comments[:5] %}
+                                <div class="list-group-item">
+                                    <div>
+                                        <h6 class="mb-0">{{ comment.game.title }}</h6>
+                                        <p class="mb-1">{{ comment.content }}</p>
+                                        <small class="text-muted">{{ comment.date.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="p-3">
+                            <p class="text-muted mb-0">No comments posted yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+                {% if comments|length > 5 %}
+                    <div class="card-footer text-center">
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#allCommentsModal">View All Comments</button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Scores Modal -->
+<div class="modal fade" id="allScoresModal" tabindex="-1" aria-labelledby="allScoresModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="allScoresModalLabel">All Scores</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Game</th>
+                                <th>Score</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for score in user.scores.order_by(Score.date.desc()).all() %}
+                                <tr>
+                                    <td>{{ score.game.title }}</td>
+                                    <td>{{ score.score }}</td>
+                                    <td>{{ score.date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Comments Modal -->
+<div class="modal fade" id="allCommentsModal" tabindex="-1" aria-labelledby="allCommentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="allCommentsModalLabel">All Comments</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% for comment in comments %}
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between">
+                            <span>{{ comment.game.title }}</span>
+                            <small>{{ comment.date.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ comment.content }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
