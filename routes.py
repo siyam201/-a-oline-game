@@ -26,6 +26,12 @@ def register_routes(app):
                     description="Jump and run through a 2D platformer world, collecting coins and avoiding obstacles.",
                     instructions="Use arrow keys to move, spacebar to jump. Collect coins and reach the flag to win the level.",
                     game_type="platformer"
+                ),
+                Game(
+                    title="Tetris",
+                    description="The famous puzzle game. Arrange falling tetrominoes to create complete lines and score points.",
+                    instructions="Use arrow keys to move and rotate pieces. Left/right to move, up to rotate, down to soft drop, spacebar for hard drop.",
+                    game_type="tetris"
                 )
             ]
             for game in games:
@@ -263,10 +269,16 @@ def register_routes(app):
             selected_game = games[0] if games else None
             top_scores = Score.query.filter_by(game_id=selected_game.id).order_by(Score.score.desc()).limit(20).all() if selected_game else []
         
+        # Get count statistics for the template
+        total_users = User.query.count()
+        total_scores = Score.query.count()
+        
         return render_template('leaderboard.html', 
                                games=games, 
                                selected_game=selected_game,
-                               top_scores=top_scores)
+                               top_scores=top_scores,
+                               total_users=total_users,
+                               total_scores=total_scores)
 
     @app.errorhandler(404)
     def page_not_found(e):
