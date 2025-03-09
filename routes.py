@@ -169,6 +169,9 @@ def register_routes(app):
     @app.route('/games')
     def games_list():
         games = Game.query.all()
+        logging.debug(f"Games list query returned {len(games)} games:")
+        for game in games:
+            logging.debug(f"  - Game ID: {game.id}, Title: {game.title}, Type: {game.game_type}")
         return render_template('games_list.html', games=games)
 
     @app.route('/game/<int:game_id>')
