@@ -34,12 +34,21 @@
     </div>
     
     <!-- Games grid -->
-    <div class="row g-4">
+    <div class="row g-4 mb-4">
+        <!-- Debug info - will remove after verifying -->
+        <div class="col-12 mb-2">
+            <div class="alert alert-info small">
+                Showing {{ games|length }} games (IDs: {% for game in games %}{{ game.id }}{% if not loop.last %}, {% endif %}{% endfor %})
+            </div>
+        </div>
+        
         {% for game in games %}
-            <div class="col-md-6 col-lg-4 game-card-container">
+            <div class="col-md-6 col-lg-4 game-card-container mb-4">
                 <div class="card h-100 game-card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">{{ game.title }}</h5>
+                    </div>
                     <div class="card-body">
-                        <h5 class="card-title">{{ game.title }}</h5>
                         <p class="card-text">{{ game.description }}</p>
                         
                         <!-- Game rating stars -->
@@ -54,6 +63,12 @@
                                     {% endif %}
                                 {% endfor %}
                             </div>
+                        </div>
+                        
+                        <!-- Game type badge -->
+                        <div class="mb-3">
+                            <span class="badge bg-secondary">ID: {{ game.id }}</span>
+                            <span class="badge bg-info">Type: {{ game.game_type }}</span>
                         </div>
                         
                         <!-- Actions -->
@@ -73,6 +88,12 @@
                             <i class="fas fa-gamepad me-1"></i>{{ game.scores.count() }} plays
                         </small>
                     </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    No games found. Please check database configuration.
                 </div>
             </div>
         {% endfor %}
