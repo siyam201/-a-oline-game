@@ -5,51 +5,61 @@ from app import db
 from models import User, Game, Score, Rating, Comment
 
 def register_routes(app):
-    # Initialize the game database if it's empty
+    # Initialize or update the game database
     def initialize_games():
-        if Game.query.count() == 0:
-            games = [
-                Game(
-                    title="Snake",
-                    description="Classic Snake game. Eat food to grow longer, but don't hit the walls or yourself!",
-                    instructions="Use arrow keys to control the snake. Eat the red food to grow. Avoid hitting walls and yourself.",
-                    game_type="snake"
-                ),
-                Game(
-                    title="Pong",
-                    description="The original arcade game. Play against the computer in this classic table tennis game.",
-                    instructions="Use up and down arrow keys to move your paddle. Hit the ball past the computer's paddle to score.",
-                    game_type="pong"
-                ),
-                Game(
-                    title="Platformer",
-                    description="Jump and run through a 2D platformer world, collecting coins and avoiding obstacles.",
-                    instructions="Use arrow keys to move, spacebar to jump. Collect coins and reach the flag to win the level.",
-                    game_type="platformer"
-                ),
-                Game(
-                    title="Tetris",
-                    description="The famous puzzle game. Arrange falling tetrominoes to create complete lines and score points.",
-                    instructions="Use arrow keys to move and rotate pieces. Left/right to move, up to rotate, down to soft drop, spacebar for hard drop.",
-                    game_type="tetris"
-                ),
-                Game(
-                    title="Flappy Bird",
-                    description="Navigate a bird through a series of pipes without hitting them. Simple but challenging!",
-                    instructions="Press spacebar or click/tap the screen to make the bird flap its wings and fly upward. Avoid hitting pipes and the ground.",
-                    game_type="flappybird"
-                ),
-                Game(
-                    title="2D Shooter Arena",
-                    description="Multiplayer online FPS shooting game. Compete against other players in a 2D arena.",
-                    instructions="Use WASD to move, mouse to aim and shoot. Collect power-ups and defeat other players to score points.",
-                    game_type="fpsgame"
+        # Create a dictionary of all game entries we want in our database
+        game_definitions = {
+            "snake": {
+                "title": "Snake",
+                "description": "Classic Snake game. Eat food to grow longer, but don't hit the walls or yourself!",
+                "instructions": "Use arrow keys to control the snake. Eat the red food to grow. Avoid hitting walls and yourself.",
+            },
+            "pong": {
+                "title": "Pong",
+                "description": "The original arcade game. Play against the computer in this classic table tennis game.",
+                "instructions": "Use up and down arrow keys to move your paddle. Hit the ball past the computer's paddle to score.",
+            },
+            "platformer": {
+                "title": "Platformer",
+                "description": "Jump and run through a 2D platformer world, collecting coins and avoiding obstacles.",
+                "instructions": "Use arrow keys to move, spacebar to jump. Collect coins and reach the flag to win the level.",
+            },
+            "tetris": {
+                "title": "Tetris",
+                "description": "The famous puzzle game. Arrange falling tetrominoes to create complete lines and score points.",
+                "instructions": "Use arrow keys to move and rotate pieces. Left/right to move, up to rotate, down to soft drop, spacebar for hard drop.",
+            },
+            "flappybird": {
+                "title": "Flappy Bird",
+                "description": "Navigate a bird through a series of pipes without hitting them. Simple but challenging!",
+                "instructions": "Press spacebar or click/tap the screen to make the bird flap its wings and fly upward. Avoid hitting pipes and the ground.",
+            },
+            "fpsgame": {
+                "title": "2D Shooter Arena",
+                "description": "Multiplayer online FPS shooting game. Compete against other players in a 2D arena.",
+                "instructions": "Use WASD to move, mouse to aim and shoot. Collect power-ups and defeat other players to score points.",
+            }
+        }
+        
+        # Check each game type and add it if it doesn't exist
+        for game_type, game_info in game_definitions.items():
+            # Check if this game type already exists
+            existing_game = Game.query.filter_by(game_type=game_type).first()
+            
+            if not existing_game:
+                # If game doesn't exist, create it
+                new_game = Game(
+                    title=game_info["title"],
+                    description=game_info["description"],
+                    instructions=game_info["instructions"],
+                    game_type=game_type
                 )
-            ]
-            for game in games:
-                db.session.add(game)
-            db.session.commit()
-            logging.debug("Games initialized")
+                db.session.add(new_game)
+                logging.debug(f"Added new game: {game_info['title']} ({game_type})")
+        
+        # Commit all changes at once
+        db.session.commit()
+        logging.debug("Games database updated")
     
     # Call initialize_games function immediately
     with app.app_context():
