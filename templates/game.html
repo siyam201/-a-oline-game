@@ -165,6 +165,10 @@
             initPlatformerGame('game-container', {{ game.id }});
         {% elif game.game_type == 'tetris' %}
             initTetrisGame('game-container', {{ game.id }});
+        {% elif game.game_type == 'flappybird' %}
+            initFlappyBirdGame('game-container', {{ game.id }});
+        {% elif game.game_type == 'fpsgame' %}
+            initFPSGame('game-container', {{ game.id }});
         {% endif %}
     });
 </script>

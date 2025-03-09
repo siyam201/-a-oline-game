@@ -32,6 +32,18 @@ def register_routes(app):
                     description="The famous puzzle game. Arrange falling tetrominoes to create complete lines and score points.",
                     instructions="Use arrow keys to move and rotate pieces. Left/right to move, up to rotate, down to soft drop, spacebar for hard drop.",
                     game_type="tetris"
+                ),
+                Game(
+                    title="Flappy Bird",
+                    description="Navigate a bird through a series of pipes without hitting them. Simple but challenging!",
+                    instructions="Press spacebar or click/tap the screen to make the bird flap its wings and fly upward. Avoid hitting pipes and the ground.",
+                    game_type="flappybird"
+                ),
+                Game(
+                    title="2D Shooter Arena",
+                    description="Multiplayer online FPS shooting game. Compete against other players in a 2D arena.",
+                    instructions="Use WASD to move, mouse to aim and shoot. Collect power-ups and defeat other players to score points.",
+                    game_type="fpsgame"
                 )
             ]
             for game in games:
@@ -141,7 +153,8 @@ def register_routes(app):
                                user=current_user, 
                                games_played=games_played,
                                ratings=user_ratings,
-                               comments=user_comments)
+                               comments=user_comments,
+                               Score=Score)
 
     @app.route('/games')
     def games_list():
