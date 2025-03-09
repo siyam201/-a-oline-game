@@ -1,8 +1,13 @@
 import logging
-from flask import render_template, request, redirect, url_for, flash, jsonify, session
+import os
+import json
+from datetime import datetime
+from flask import render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_login import login_user, logout_user, current_user, login_required
+from flask_socketio import SocketIO
+from werkzeug.utils import secure_filename
 from app import db
-from models import User, Game, Score, Rating, Comment
+from models import User, Game, Score, Rating, Comment, UserGame, GameCategory, UserGameRating, UserGameComment, UserGamePlay
 
 def register_routes(app):
     # Initialize or update the game database
@@ -313,3 +318,332 @@ def register_routes(app):
     @app.errorhandler(500)
     def internal_server_error(e):
         return render_template('500.html'), 500
+        
+    # User-Generated Games Routes
+    
+    # Setup upload folder for game thumbnails
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    
+    def allowed_file(filename):
+        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+        
+    # Initialize game categories if they don't exist
+    def initialize_categories():
+        categories = [
+            {'name': 'Arcade', 'description': 'Classic arcade-style games'},
+            {'name': 'Puzzle', 'description': 'Brain teasers and puzzle games'},
+            {'name': 'Action', 'description': 'Fast-paced action games'},
+            {'name': 'Adventure', 'description': 'Exploration and adventure games'},
+            {'name': 'Strategy', 'description': 'Strategic thinking games'}
+        ]
+        
+        for category_info in categories:
+            existing_category = GameCategory.query.filter_by(name=category_info['name']).first()
+            if not existing_category:
+                new_category = GameCategory(
+                    name=category_info['name'],
+                    description=category_info['description']
+                )
+                db.session.add(new_category)
+                logging.debug(f"Added new category: {category_info['name']}")
+        
+        db.session.commit()
+        logging.debug("Game categories initialized")
+    
+    # Call initialize_categories function
+    with app.app_context():
+        initialize_categories()
+    
+    @app.route('/create-game', methods=['GET', 'POST'])
+    @login_required
+    def create_game():
+        categories = GameCategory.query.all()
+        
+        if request.method == 'POST':
+            title = request.form.get('title')
+            description = request.form.get('description')
+            instructions = request.form.get('instructions')
+            category_id = request.form.get('category_id')
+            game_code = request.form.get('game_code')
+            
+            # Basic validation
+            if not all([title, description, instructions, game_code]):
+                flash('All fields except thumbnail are required', 'danger')
+                return render_template('create_game.html', categories=categories)
+            
+            # Handle thumbnail upload
+            thumbnail_path = None
+            if 'thumbnail' in request.files:
+                thumbnail = request.files['thumbnail']
+                if thumbnail.filename and allowed_file(thumbnail.filename):
+                    filename = secure_filename(f"{current_user.username}_{int(datetime.now().timestamp())}_{thumbnail.filename}")
+                    filepath = os.path.join(UPLOAD_FOLDER, filename)
+                    thumbnail.save(filepath)
+                    thumbnail_path = f"uploads/{filename}"
+            
+            # Create new user game
+            try:
+                new_game = UserGame(
+                    title=title,
+                    description=description,
+                    instructions=instructions,
+                    code=game_code,
+                    thumbnail=thumbnail_path,
+                    user_id=current_user.id,
+                    category_id=category_id if category_id else None
+                )
+                
+                db.session.add(new_game)
+                db.session.commit()
+                
+                flash('Your game has been submitted for review!', 'success')
+                return redirect(url_for('user_games'))
+                
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"Error creating game: {str(e)}")
+                flash('Error creating game', 'danger')
+                
+        return render_template('create_game.html', categories=categories)
+    
+    @app.route('/edit-game/<int:game_id>', methods=['GET', 'POST'])
+    @login_required
+    def edit_game(game_id):
+        game = UserGame.query.get_or_404(game_id)
+        
+        # Check if the current user is the creator or an admin
+        if game.user_id != current_user.id and not current_user.is_admin:
+            flash('You do not have permission to edit this game', 'danger')
+            return redirect(url_for('user_games'))
+        
+        categories = GameCategory.query.all()
+        
+        if request.method == 'POST':
+            title = request.form.get('title')
+            description = request.form.get('description')
+            instructions = request.form.get('instructions')
+            category_id = request.form.get('category_id')
+            game_code = request.form.get('game_code')
+            
+            # Basic validation
+            if not all([title, description, instructions, game_code]):
+                flash('All fields except thumbnail are required', 'danger')
+                return render_template('edit_game.html', game=game, categories=categories)
+            
+            # Handle thumbnail upload
+            if 'thumbnail' in request.files:
+                thumbnail = request.files['thumbnail']
+                if thumbnail.filename and allowed_file(thumbnail.filename):
+                    # Remove old thumbnail if it exists
+                    if game.thumbnail:
+                        old_filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                                 'static', game.thumbnail)
+                        if os.path.exists(old_filepath):
+                            os.remove(old_filepath)
+                    
+                    filename = secure_filename(f"{current_user.username}_{int(datetime.now().timestamp())}_{thumbnail.filename}")
+                    filepath = os.path.join(UPLOAD_FOLDER, filename)
+                    thumbnail.save(filepath)
+                    game.thumbnail = f"uploads/{filename}"
+            
+            # Update game details
+            try:
+                game.title = title
+                game.description = description
+                game.instructions = instructions
+                game.code = game_code
+                game.category_id = category_id if category_id else None
+                game.date_updated = datetime.utcnow()
+                
+                # If admin is editing, they can publish/unpublish
+                if current_user.is_admin:
+                    game.is_published = 'is_published' in request.form
+                    game.is_featured = 'is_featured' in request.form
+                
+                db.session.commit()
+                
+                flash('Game updated successfully!', 'success')
+                return redirect(url_for('user_game', game_id=game.id))
+                
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"Error updating game: {str(e)}")
+                flash('Error updating game', 'danger')
+                
+        return render_template('edit_game.html', game=game, categories=categories)
+    
+    @app.route('/user-games')
+    def user_games():
+        # Get published games or all games if user is admin
+        if current_user.is_authenticated and current_user.is_admin:
+            games = UserGame.query.order_by(UserGame.date_created.desc()).all()
+        else:
+            games = UserGame.query.filter_by(is_published=True).order_by(UserGame.date_created.desc()).all()
+        
+        # Get featured games for the carousel
+        featured_games = UserGame.query.filter_by(is_published=True, is_featured=True).limit(5).all()
+        
+        # Get categories for filtering
+        categories = GameCategory.query.all()
+        
+        return render_template('user_games.html', 
+                              games=games, 
+                              featured_games=featured_games, 
+                              categories=categories)
+    
+    @app.route('/user-game/<int:game_id>')
+    def user_game(game_id):
+        game = UserGame.query.get_or_404(game_id)
+        
+        # If game is not published, only creator and admins can view it
+        if not game.is_published and (not current_user.is_authenticated or 
+                                     (current_user.id != game.user_id and not current_user.is_admin)):
+            flash('This game is not published yet', 'warning')
+            return redirect(url_for('user_games'))
+        
+        # Get comments
+        comments = UserGameComment.query.filter_by(game_id=game_id).order_by(UserGameComment.date.desc()).all()
+        
+        # Get user rating if logged in
+        user_rating = None
+        if current_user.is_authenticated:
+            user_rating = UserGameRating.query.filter_by(user_id=current_user.id, game_id=game_id).first()
+            
+            # Record play if user is not the creator
+            if current_user.id != game.user_id:
+                try:
+                    play = UserGamePlay(user_id=current_user.id, game_id=game_id)
+                    db.session.add(play)
+                    db.session.commit()
+                except:
+                    db.session.rollback()
+        
+        return render_template('user_game.html', 
+                              game=game, 
+                              comments=comments, 
+                              user_rating=user_rating)
+    
+    @app.route('/play-user-game/<int:game_id>')
+    def play_user_game(game_id):
+        game = UserGame.query.get_or_404(game_id)
+        
+        # If game is not published, only creator and admins can play it
+        if not game.is_published and (not current_user.is_authenticated or 
+                                     (current_user.id != game.user_id and not current_user.is_admin)):
+            flash('This game is not published yet', 'warning')
+            return redirect(url_for('user_games'))
+        
+        return render_template('play_user_game.html', game=game)
+    
+    @app.route('/rate-user-game', methods=['POST'])
+    @login_required
+    def rate_user_game():
+        game_id = request.form.get('game_id')
+        rating_value = request.form.get('rating')
+        
+        if not game_id or not rating_value:
+            flash('Missing required data', 'danger')
+            return redirect(url_for('user_game', game_id=game_id))
+        
+        try:
+            # Check if user already rated this game
+            existing_rating = UserGameRating.query.filter_by(
+                user_id=current_user.id,
+                game_id=int(game_id)
+            ).first()
+            
+            if existing_rating:
+                existing_rating.rating = int(rating_value)
+                flash('Rating updated successfully', 'success')
+            else:
+                rating = UserGameRating(
+                    rating=int(rating_value),
+                    user_id=current_user.id,
+                    game_id=int(game_id)
+                )
+                db.session.add(rating)
+                flash('Rating submitted successfully', 'success')
+                
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error submitting rating: {str(e)}")
+            flash('Error submitting rating', 'danger')
+            
+        return redirect(url_for('user_game', game_id=game_id))
+    
+    @app.route('/comment-user-game', methods=['POST'])
+    @login_required
+    def comment_user_game():
+        game_id = request.form.get('game_id')
+        content = request.form.get('content')
+        
+        if not game_id or not content:
+            flash('Comment content is required', 'danger')
+            return redirect(url_for('user_game', game_id=game_id))
+        
+        try:
+            comment = UserGameComment(
+                content=content,
+                user_id=current_user.id,
+                game_id=int(game_id)
+            )
+            db.session.add(comment)
+            db.session.commit()
+            flash('Comment added successfully', 'success')
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error adding comment: {str(e)}")
+            flash('Error adding comment', 'danger')
+            
+        return redirect(url_for('user_game', game_id=game_id))
+    
+    @app.route('/admin/games', methods=['GET'])
+    @login_required
+    def admin_games():
+        if not current_user.is_admin:
+            flash('Access denied', 'danger')
+            return redirect(url_for('index'))
+            
+        games = UserGame.query.order_by(UserGame.date_created.desc()).all()
+        return render_template('admin_games.html', games=games)
+    
+    @app.route('/admin/review-game/<int:game_id>', methods=['GET', 'POST'])
+    @login_required
+    def admin_review_game(game_id):
+        if not current_user.is_admin:
+            flash('Access denied', 'danger')
+            return redirect(url_for('index'))
+            
+        game = UserGame.query.get_or_404(game_id)
+        
+        if request.method == 'POST':
+            action = request.form.get('action')
+            
+            if action == 'approve':
+                game.is_published = True
+                db.session.commit()
+                flash('Game approved and published', 'success')
+            elif action == 'reject':
+                game.is_published = False
+                db.session.commit()
+                flash('Game rejected', 'warning')
+            elif action == 'feature':
+                game.is_featured = True
+                db.session.commit()
+                flash('Game set as featured', 'success')
+            elif action == 'unfeature':
+                game.is_featured = False
+                db.session.commit()
+                flash('Game removed from featured list', 'info')
+            elif action == 'delete':
+                db.session.delete(game)
+                db.session.commit()
+                flash('Game deleted', 'warning')
+                return redirect(url_for('admin_games'))
+                
+        return render_template('admin_review_game.html', game=game)
